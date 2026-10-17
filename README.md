@@ -237,10 +237,9 @@ table well inside a free Redis tier.
 
 ## Deploying
 
-Built for Vercel. Create a **new project** pointed at this repo with the root
-directory set to `mooncoin` — same arrangement as `trading-sim`, so it deploys
-independently of the static site at the repo root. Every branch then gets its own
-preview URL.
+Built for Vercel. Create a **new project** pointed at this repo; the root
+directory is the repo root and there is no build step. Every branch then gets
+its own preview URL.
 
 **Add a Redis store, or the game will not work properly.** Serverless functions
 share no memory, so game state has to live somewhere both requests can reach:
