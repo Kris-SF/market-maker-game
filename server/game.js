@@ -29,6 +29,7 @@ import {
 } from './options.js';
 
 import { BOT_NAMES, botOrder, botCards, botQuotes } from './bots.js';
+import { attribution } from './attribution.js';
 
 export const PHASES = ['lobby', 'auction', 'orders', 'cards', 'rolling', 'complete'];
 
@@ -495,7 +496,7 @@ function settleOptions(game, priorCoinMark) {
       if (s.shares !== 0) {
         p.fills.push({
           round: game.round, qty: s.shares, price: s.strike,
-          exercise: { kind: s.kind, strike: s.strike, expiry: s.expiry, contracts: s.qty },
+          exercise: { kind: s.kind, strike: s.strike, expiry: s.expiry, contracts: s.qty, settle: game.mark },
         });
       }
       p.settledOptions.push({
@@ -525,6 +526,9 @@ function writeOption(game, playerId, contract, qty, premium) {
   p.optionLog.push({
     round: game.round, kind: contract.kind, strike: contract.strike,
     expiry: contract.expiry, qty, premium,
+    // The future's mark at the moment of the trade, so the end-of-game split
+    // can say how much of the price was already in the money.
+    underlying: game.mark,
   });
 }
 
@@ -889,6 +893,11 @@ export function publicState(game) {
     optionTrades: game.options?.tape ?? [],
     openInterest: game.options ? openInterest(game) : [],
     history: game.history,
+    // Where everyone's P/L came from, once the game is over and nobody's book
+    // can be backed out of it to any purpose.
+    recap: game.phase === 'complete'
+      ? Object.fromEntries(game.players.map((p) => [p.id, attribution(game, p)]))
+      : null,
     // The book in aggregate only. The per-player orders and fills behind it
     // stay out of the shared payload: a player's own are on their mat, and
     // everyone else's are nobody's business.
@@ -924,6 +933,7 @@ export function privateState(game, playerId) {
       initialHand: p.initialHand,
       fills: p.fills,
       ...withOptions(game, p),
+      attribution: attribution(game, p, { lines: true }),
       pendingOrder: game.pendingOrders[p.id] ?? null,
       pendingCards: game.pendingCards[p.id] ?? null,
       ordersReady: !!game.ready.orders[p.id],

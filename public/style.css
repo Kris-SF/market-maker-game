@@ -1174,3 +1174,166 @@ tbody tr.exercised td:first-child { box-shadow: inset 2px 0 0 var(--cyan); }
 .o-detail-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .o-chips.sm { margin: 0; gap: 4px; }
 .o-chips.sm .o-chip { font-size: 11px; padding: 3px 9px; }
+
+/* ===========================================================================
+   Players, and the colours reserved away from them
+   =========================================================================== */
+.who { display: inline-flex; align-items: center; gap: 6px; }
+.who-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; font-style: normal; }
+
+/* Expiry is white and only white: no player, no P/L, no move shares it. */
+.o-chip.exp.on,
+.o-chip.exp.on:hover:not(:disabled) { background: var(--white); color: var(--bg); border-color: var(--white); }
+.o-zero .o-chip.on, .o-zero .o-chip.on:hover:not(:disabled) {
+  background: transparent; border-color: var(--white); color: var(--white);
+}
+
+/* Where you already stand, on the quote ticket. */
+.o-netband {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 10px 12px; margin-bottom: 8px; border-radius: 8px;
+  background: var(--accent-glow); border: 1px solid rgba(88, 99, 248, 0.3);
+  font-size: 13px; color: var(--grey);
+}
+.o-netband b { font-family: var(--mono); font-size: 17px; font-weight: 700; }
+.o-net { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--grey); margin: 2px 0 6px; }
+.o-net b { font-family: var(--mono); font-weight: 700; }
+.white { color: var(--white); }
+
+/* The dice bar, previewed while you pick cards. */
+.n-preview {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: 12px;
+  background: var(--l1); border: 1px solid rgba(88, 99, 248, 0.42);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.n-preview .n-note { margin: 0; }
+.n-need { display: grid; grid-template-columns: 92px auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.n-need .k { font-size: 13px; color: var(--grey); }
+.n-need .v { font-family: var(--mono); font-size: 13px; text-align: right; }
+.n-need .v s { color: var(--faint); }
+.n-need .v i { font-style: normal; color: var(--faint); margin-left: 4px; }
+.n-faces { display: inline-flex; gap: 3px; }
+.n-faces i {
+  width: 22px; height: 22px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-style: normal; background: var(--l3); color: var(--grey-dark);
+}
+.n-faces i.hit { color: var(--bg); font-weight: 700; }
+.n-faces i.hit.up { background: var(--up); }
+.n-faces i.hit.cyan { background: var(--cyan); }
+
+/* How the print was built. */
+.n-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 14px 0; }
+.n-step {
+  display: flex; flex-direction: column; gap: 2px; min-width: 64px;
+  padding: 8px 10px; border-radius: 10px; background: var(--l2); border: 1px solid var(--rule);
+}
+.n-step .l { font-size: 11px; color: var(--grey); white-space: nowrap; }
+.n-step b { font-family: var(--mono); font-size: 18px; font-weight: 700; }
+.n-step .s { font-size: 10px; color: var(--faint); white-space: nowrap; }
+.n-step.up b { color: var(--up); }
+.n-step.down b { color: var(--down); }
+.n-step.accent b { color: var(--accent-bright); }
+.n-step.print { background: rgba(88, 99, 248, 0.22); border: 2px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
+.n-op { font-family: var(--mono); color: var(--grey-dark); font-size: 16px; }
+.n-flow-note { padding: 6px 14px 10px; font-size: 12px; color: var(--faint); }
+.n-steps.big { gap: 10px; padding: 16px 20px 0; }
+.n-steps.big .n-step { min-width: 104px; padding: 12px 14px; border-radius: 14px; }
+.n-steps.big .n-step .l { font-size: 13px; }
+.n-steps.big .n-step b { font-size: 30px; }
+.n-steps.big .n-step .s { font-size: 12px; }
+.n-steps.big .n-op { font-size: 22px; }
+.n-steps.big + .n-flow-note { padding: 8px 20px 14px; font-size: 14px; border-bottom: 1px solid var(--rule); }
+
+/* An expiry, told as what it did to you. White is expiry's colour. */
+.n-expiry {
+  margin: 0 0 12px; padding: 14px; border-radius: 14px; background: var(--l1);
+  border: 1px solid rgba(242, 244, 248, 0.45); display: flex; flex-direction: column; gap: 8px;
+}
+.n-exp-head { display: flex; flex-direction: column; gap: 2px; }
+.n-exp-head .t { font-family: var(--disp); font-size: 18px; font-weight: 600; }
+.n-exp-head .t b { font-family: var(--mono); }
+.n-exp-head .dim { font-size: 12px; }
+.n-exp-line {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px;
+  padding: 9px 12px; border-radius: 10px; background: var(--l2); border: 1px solid var(--rule);
+  font-size: 13px;
+}
+.n-exp-line.into { border-color: rgba(242, 244, 248, 0.35); }
+.n-exp-line b { font-family: var(--mono); font-size: 15px; }
+.n-exp-line .r { text-align: right; font-size: 11px; }
+.n-exp-to { color: var(--white); }
+.n-exp-fut, .n-exp-total { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 2px 0; }
+.n-exp-fut b, .n-exp-total b { font-family: var(--mono); font-size: 20px; }
+.n-exp-total span { font-size: 13px; color: var(--grey); }
+
+/* The recap. Direction is the accent; time value is violet, its own colour. */
+.n-recap { display: flex; flex-direction: column; gap: 14px; padding: 4px 0; }
+.n-recap-key { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--grey); }
+.n-recap-key .seg { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.seg.dir { background: var(--accent-bright); }
+.seg.tv { background: #B9A6FF; }
+.n-recap-row { display: grid; grid-template-columns: minmax(90px, 140px) 86px minmax(0, 1fr); gap: 12px; align-items: center; }
+.n-recap-row .nm { font-family: var(--disp); font-weight: 600; font-size: 15px; }
+.n-recap-row > b { font-family: var(--mono); font-size: 18px; text-align: right; }
+.n-recap-row .bars { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.n-recap-row .track { position: relative; height: 24px; }
+.n-recap-row .track .zero { position: absolute; top: -4px; bottom: -4px; width: 2px; background: rgba(255, 255, 255, 0.25); }
+.n-recap-row .track .seg {
+  position: absolute; top: 0; height: 24px; border-radius: 4px; border: 1px solid var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--bg);
+}
+.n-recap-row .line { font-size: 13px; color: var(--grey); }
+.n-recap.big { gap: 20px; }
+.n-recap.big .n-recap-key { font-size: 15px; }
+.n-recap.big .n-recap-row { grid-template-columns: 180px 120px minmax(0, 1fr); gap: 18px; }
+.n-recap.big .n-recap-row .nm { font-size: 22px; }
+.n-recap.big .n-recap-row > b { font-size: 28px; }
+.n-recap.big .n-recap-row .track, .n-recap.big .n-recap-row .track .seg { height: 32px; }
+.n-recap.big .n-recap-row .track .seg { font-size: 13px; }
+.n-recap.big .n-recap-row .line { font-size: 15px; }
+.n-recap-wall { padding: 20px 24px; border-bottom: 1px solid var(--rule); }
+.n-recap-wall h2 { margin: 0 0 16px; font-family: var(--disp); font-size: 28px; font-weight: 600; }
+.n-recap-wall h2 b { font-family: var(--mono); }
+.n-recap-mine { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.n-recap-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.n-recap-sum > div { background: var(--l2); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; }
+.n-recap-sum b { font-family: var(--mono); font-size: 24px; }
+.n-recap-said { margin: 0; font-size: 14px; color: var(--white); }
+.n-recap-tbl .grp th { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; text-align: center; }
+.n-recap-tbl .grp .dir { color: var(--accent-bright); border-bottom: 1px solid rgba(131, 140, 255, 0.4); }
+.n-recap-tbl .grp .tv { color: #B9A6FF; text-align: right; }
+.n-recap-tbl tfoot td { font-weight: 700; border-top: 1px solid rgba(255, 255, 255, 0.2); }
+
+/* The lobby on the wall: scan, or type the code. */
+.n-lobby { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 32px; align-items: center; text-align: left; padding: 28px 24px; }
+.n-join { display: flex; align-items: center; gap: 28px; }
+.n-qr { width: 200px; height: 200px; border-radius: 14px; flex: none; }
+.n-join-txt { display: flex; flex-direction: column; gap: 4px; }
+.n-url { font-family: var(--mono); font-size: 16px; color: var(--grey); }
+.n-lobby .n-code { font-size: 84px; line-height: 1; letter-spacing: 0.12em; }
+.n-seated { display: flex; flex-direction: column; gap: 12px; }
+.n-avatars { display: flex; flex-wrap: wrap; gap: 10px; }
+.n-avatar { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; border-radius: 999px; background: var(--l2); }
+.n-avatar i {
+  width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: var(--disp); font-style: normal; font-weight: 700; color: var(--bg);
+}
+.n-avatar span { font-family: var(--disp); font-weight: 600; }
+@media (max-width: 760px) {
+  .n-lobby { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  .n-join { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .n-qr { width: 160px; height: 160px; }
+  .n-lobby .n-code { font-size: 56px; }
+}
+
+.o-net.quiet { color: var(--faint); }
+.faint { color: var(--faint); }
+
+/* The recap fits a phone: name and total on one line, the bar full width under it. */
+.n-recap:not(.big) .n-recap-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
+.n-recap:not(.big) .n-recap-row .bars { grid-column: 1 / -1; }
+.n-recap-tbl { width: 100%; table-layout: fixed; }
+.n-recap-tbl th:first-child, .n-recap-tbl td:first-child { width: auto; white-space: normal; }
+.n-recap-tbl th:not(:first-child), .n-recap-tbl td:not(:first-child) { width: 68px; }
+.n-recap-tbl td .tiny { white-space: normal; }
