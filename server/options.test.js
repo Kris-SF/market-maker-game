@@ -1110,7 +1110,7 @@ test('exercise writes a stock fill at the strike onto the blotter', () => {
     assert.equal(delivered[0].qty, calls, 'long calls take stock, short calls give it');
     assert.equal(delivered[0].price, 100, 'at the strike, never at the mark');
     assert.equal(delivered[0].round, 1);
-    assert.deepEqual(delivered[0].exercise, { kind: 'call', strike: 100, expiry: 1, contracts: calls });
+    assert.deepEqual(delivered[0].exercise, { kind: 'call', strike: 100, expiry: 1, contracts: calls, settle: g.mark });
     // And it is a real position now: the player's own mat carries it as shares.
     const row = privateState(g, p.id).me;
     assert.equal(row.shares, calls);

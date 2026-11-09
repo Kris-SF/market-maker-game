@@ -109,6 +109,50 @@ const PHASE_LABEL = {
   complete: 'CLOSED',
 };
 
+/**
+ * Player colours.
+ *
+ * Twelve shades of the theme's own indigo, azure and violet, spread by
+ * lightness so neighbouring seats stay distinct. None of them is green, red,
+ * cyan or white: those are reserved for gain, loss, a BIG move and an expiry,
+ * and a player must never be mistaken for any of them. Assigned by seat, so a
+ * player keeps their colour all game; past twelve seats the colours repeat and
+ * the name does the rest.
+ */
+const PLAYER_COLORS = [
+  '#838CFF', '#5B9DFF', '#A98BFF', '#C9CDFF', '#4A5BD8', '#8FB8FF',
+  '#7A5CE0', '#D6C2FF', '#3F7BE0', '#B3A0F0', '#6F7DB8', '#E0E4FF',
+];
+const seatColor = (seat) => PLAYER_COLORS[((seat ?? 1) - 1) % PLAYER_COLORS.length];
+const colorOfName = (st, name) => {
+  const p = st?.standings?.find((x) => x.name === name);
+  return p ? seatColor(p.seat) : 'var(--faint)';
+};
+/** A name with its seat colour beside it. */
+const who = (st, name, extra = '') =>
+  `<span class="who ${extra}"><i class="who-dot" style="background:${colorOfName(st, name)}"></i>${esc(name)}</span>`;
+
+/**
+ * The regime's push on this round's dice, mirroring the engine's
+ * regimeEffects: two rounds in a row the same way lean the next one further
+ * that way. Public arithmetic on public history.
+ */
+function regimeOf(history) {
+  const n = history.length;
+  if (n < 2) return { trend: 0, mag: 0 };
+  const a = history[n - 1], b = history[n - 2];
+  return {
+    trend: a.trend === b.trend ? a.trend : 0,
+    mag: a.type === b.type ? (a.type === 'MULTIPLY' ? 1 : -1) : 0,
+  };
+}
+
+/** Six faces, the ones that land on the upside lit. */
+function faces(need, klass) {
+  return `<span class="n-faces">${[1, 2, 3, 4, 5, 6].map((v) =>
+    `<i class="${v >= need ? `hit ${klass}` : ''}">${v}</i>`).join('')}</span>`;
+}
+
 /** Impact preview, mirroring the server's printPrice. */
 const impactOf = (qty) => (qty === 0 ? 0 : Math.sign(qty) * Math.ceil(Math.sqrt(Math.abs(qty))));
 
@@ -482,6 +526,34 @@ function ladder(book) {
 }
 
 /**
+ * How the print was built, one term at a time.
+ *
+ * The same arithmetic the engine runs — market buys less market sells is the
+ * pressure, the resting side facing it absorbs what it can, and what is left
+ * moves the price by its square root, rounded up — laid out left to right so
+ * the print reads as a sum rather than arriving as a number.
+ */
+function printSteps(book, big = false) {
+  const imb = book.imbalance ?? 0;
+  const impact = impactOf(imb);
+  const from = book.price - impact;
+  const step = (label, value, sub, klass = '', op = '') => `
+    <div class="n-step ${klass}"><span class="l">${label}</span><b>${value}</b><span class="s">${sub}</span></div>
+    ${op ? `<span class="n-op">${op}</span>` : ''}`;
+  return `
+    <div class="n-steps ${big ? 'big' : ''}">
+      ${step('Market buys', book.marketBid ?? 0, 'contracts', 'up', '−')}
+      ${step('Market sells', book.marketOffer ?? 0, 'contracts', 'down', '=')}
+      ${step('Pressure', signed(book.pressure ?? 0), 'net demand', '', (book.pressure ?? 0) < 0 ? '+' : '−')}
+      ${step('Absorbed', book.absorbed ?? 0, 'by resting quotes', '', '=')}
+      ${step('Imbalance', signed(imb), 'left over', '', '→')}
+      ${step(`⌈√${Math.abs(imb)}⌉`, signed(impact), 'points', 'accent', '→')}
+      ${step('Print', book.price, `${from} ${impact < 0 ? '−' : '+'} ${Math.abs(impact)}`, 'print')}
+    </div>
+    <div class="n-flow-note">Paid by takers, collected by resters.</div>`;
+}
+
+/**
  * The dice, decomposed.
  *
  * A die on its own tells you nothing — what matters is the roll plus whatever
@@ -529,7 +601,7 @@ function dieCard(spec, value, net, state) {
     const ask = !t ? '<span class="dim">sets the size</span>'
       : t.certain === 'hit' ? `<span class="${spec.hitClass}">locked in — any roll is ${spec.hit}</span>`
       : t.certain === 'miss' ? `<span class="${spec.missClass}">locked in — any roll is ${spec.miss}</span>`
-      : `needs <b>${t.need}+</b> for <span class="${spec.hitClass}">${spec.hit}</span>`;
+      : `needs <b>${t.need}+</b> for <span class="${spec.hitClass}">${spec.hit}</span> <span class="dim">${t.chance}%</span>`;
     return `
       <div class="${klass}">
         <div class="n-die-cap">${spec.cap}</div>
@@ -612,7 +684,7 @@ function waitingPills(st, list) {
   if (!st.standings.length) return '<span class="dim">No players seated</span>';
   return `<div class="waiting">${st.standings.map((p) => {
     const late = list.includes(p.name);
-    return `<span class="pill ${late ? 'late' : 'ready'}">${late ? '·' : '✓'} ${esc(p.name)}</span>`;
+    return `<span class="pill ${late ? 'late' : 'ready'}">${late ? '·' : '✓'} ${who(st, p.name)}</span>`;
   }).join('')}</div>`;
 }
 
@@ -620,7 +692,7 @@ function standingsTable(st, opts = {}) {
   const rows = st.standings.map((p, i) => `
     <tr class="${opts.meId === p.id ? 'me' : ''}">
       <td class="num dim">${i + 1}</td>
-      <td class="strong">${esc(p.name)}${p.bot ? ' <span class="bot-tag">bot</span>' : ''}</td>
+      <td class="strong">${who(st, p.name)}${p.bot ? ' <span class="bot-tag">bot</span>' : ''}</td>
       <td class="num strong ${cls(p.pl)}">${money(p.pl)}</td>
       <td class="num dim">${p.cardsLeft}</td>
       ${opts.host ? `<td class="num"><button class="danger" data-kick="${p.id}" data-name="${esc(p.name)}">×</button></td>` : ''}
@@ -1105,9 +1177,48 @@ function cardTicket(st, me) {
             </div>`;
         }).join('')}
       </div>
+      ${cardPreview(st)}
       <button class="primary n-go" id="submitCards">Confirm cards</button>
       <p class="n-note">↑↓ push the trend die, ×/+ the magnitude die. Three net cards
         decides the direction outright; a fourth buys nothing. Spent either way.</p>
+    </div>`;
+}
+
+/**
+ * What the dice will need, counting the cards you have picked.
+ *
+ * The regime is public and so are your own cards, so this much is plain
+ * arithmetic. Everyone else's cards are not, so it says so: this is where the
+ * bar stands before the rest of the table weighs in, not where it will land.
+ */
+function cardPreview(st) {
+  const regime = regimeOf(st.history);
+  const c = ui.cards;
+  const mine = { trend: (c.up ?? 0) - (c.down ?? 0), mag: (c.multiply ?? 0) - (c.add ?? 0) };
+  const row = (label, spec, mod) => {
+    const was = threshold(regime[mod]);
+    const now = threshold(regime[mod] + mine[mod]);
+    const say = (t) => (t.certain === 'hit' ? 'certain' : t.certain === 'miss' ? 'impossible' : `${t.need}+`);
+    const changed = mine[mod] !== 0;
+    return `
+      <div class="n-need">
+        <span class="k">${label}</span>
+        ${faces(now.need, spec.hitClass)}
+        <span class="v">${changed ? `<s>${say(was)}</s> ` : ''}<b class="${spec.hitClass}">${say(now)}</b>
+          <i>${now.certain === 'hit' ? '100' : now.certain === 'miss' ? '0' : now.chance}%</i></span>
+      </div>`;
+  };
+  const carry = [
+    regime.trend ? `${signed(regime.trend)} trend` : '',
+    regime.mag ? `${signed(regime.mag)} volatility` : '',
+  ].filter(Boolean).join(' and ');
+  return `
+    <div class="n-preview">
+      <div class="n-lab">What the dice will need, counting your cards</div>
+      ${row('Trend → UP', DICE[0], 'trend')}
+      ${row('Vol → BIG', DICE[1], 'mag')}
+      <p class="n-note">${carry ? `Includes ${carry} carried over from the last two rounds. ` : ''}Other
+        players' cards are still hidden and can move these either way.</p>
     </div>`;
 }
 
@@ -1148,6 +1259,173 @@ function lastRoundReplay(st, me) {
         resolved: { trend: h.trend, type: h.type, chg: h.chg },
         priorMark: h.priorMark, yours,
       })}
+    </div>`;
+}
+
+/**
+ * The expiry that just happened, told as what it did to you.
+ *
+ * Physical settlement is the most confusing moment in the game: options turn
+ * into futures at their strike, and the futures position you were holding is
+ * suddenly a different number. So say it line by line — which contracts became
+ * futures, which expired, what each did against the mark you were carrying it
+ * at — and then the futures position before and after.
+ */
+function expirySummary(st, me) {
+  const h = st.history[st.history.length - 1];
+  if (!h) return '';
+  const rows = (me.settledOptions ?? []).filter((x) => x.round === h.round);
+  if (!rows.length) return '';
+  const delivered = rows.reduce((a, x) => a + (x.shares ?? 0), 0);
+  const after = me.shares, before = after - delivered;
+  const total = rows.reduce((a, x) => a + (x.plFromMark ?? 0), 0);
+  const line = (x) => {
+    const name = `${signed(x.qty)} ${x.strike}${x.kind === 'call' ? 'C' : 'P'}`;
+    const out = x.shares
+      ? `<span class="n-exp-to">→ ${signed(x.shares)} futures at ${x.strike}</span>`
+      : '<span class="dim">expired worthless</span>';
+    const prior = x.priorMark === undefined ? '—' : `$${px(x.priorMark, x.priorMark % 1 ? 2 : 0)}`;
+    return `
+      <div class="n-exp-line ${x.shares ? 'into' : ''}">
+        <b>${name}</b>
+        <b class="${cls(x.plFromMark ?? 0)}">${x.plFromMark === undefined ? '—' : moneyHTML(x.plFromMark)}</b>
+        ${out}
+        <span class="dim r">mark ${prior} → $${x.mark}</span>
+      </div>`;
+  };
+  return `
+    <div class="n-expiry">
+      <div class="n-exp-head">
+        <span class="n-lab">Expiry</span>
+        <span class="t">R${h.round} options settled at <b>${h.mark}</b></span>
+        <span class="dim">In-the-money options became futures at their strike. The rest expired.</span>
+      </div>
+      ${rows.map(line).join('')}
+      ${delivered ? `
+        <div class="n-exp-fut">
+          <span class="n-lab">Your futures</span>
+          <span><b class="dim">${signed(before)}</b> <span class="n-op">→</span> <b class="${cls(after)}">${signed(after)}</b></span>
+        </div>` : ''}
+      <div class="n-exp-total"><span>Expiry P/L vs prior marks</span><b class="${cls(total)}">${moneyHTML(total)}</b></div>
+    </div>`;
+}
+
+// ===========================================================================
+// RECAP — where everyone's P/L came from
+//
+// Two buckets, both plain arithmetic the server does on the blotter: direction
+// (futures plus the in-the-money part of options) and time value (the part of
+// every option price above intrinsic). The sentence under each player is a
+// fixed template on those two numbers. Nothing here is inferred.
+// ===========================================================================
+
+const signedMoney = (n) => (n > 0 ? `+${money(n)}` : money(n));
+
+function recapLine(a) {
+  const tv = a.timeValue;
+  const first = tv > 0 ? `Net seller of time value (${signedMoney(tv)}).`
+    : tv < 0 ? `Net buyer of time value (${signedMoney(tv)}).`
+    : 'No time value either way.';
+  return `${first} Direction ${signedMoney(a.direction)}.`;
+}
+
+/** Everyone's split, as a bar each: direction and time value either side of zero. */
+function recapBoard(st, big = false) {
+  const recap = st.recap;
+  if (!recap) return '';
+  const rows = st.standings.map((p) => ({ p, a: recap[p.id] })).filter((r) => r.a);
+  const pos = (a) => Math.max(0, a.direction) + Math.max(0, a.timeValue);
+  const neg = (a) => Math.max(0, -a.direction) + Math.max(0, -a.timeValue);
+  const maxPos = Math.max(1, ...rows.map((r) => pos(r.a)));
+  const maxNeg = Math.max(0, ...rows.map((r) => neg(r.a)));
+  const span = maxPos + maxNeg;
+  const pct = (v) => (v / span) * 100;
+  const zero = pct(maxNeg);
+
+  const bar = (a) => {
+    let right = zero, left = zero;
+    return [['dir', a.direction], ['tv', a.timeValue]].map(([k, v]) => {
+      const w = pct(Math.abs(v));
+      let at;
+      if (v >= 0) { at = right; right += w; } else { left -= w; at = left; }
+      return v === 0 ? '' : `<span class="seg ${k}" style="left:${at.toFixed(2)}%;width:${w.toFixed(2)}%">${
+        w > 9 ? signed(Math.round(v)) : ''}</span>`;
+    }).join('');
+  };
+
+  return `
+    <div class="n-recap ${big ? 'big' : ''}">
+      <div class="n-recap-key">
+        <span><i class="seg dir"></i>Direction <span class="dim">· futures + option intrinsic</span></span>
+        <span><i class="seg tv"></i>Time value <span class="dim">· option extrinsic</span></span>
+      </div>
+      ${rows.map(({ p, a }, i) => `
+        <div class="n-recap-row">
+          <span class="nm">${i + 1}. ${who(st, p.name)}</span>
+          <b class="${cls(p.pl)}">${moneyHTML(p.pl)}</b>
+          <div class="bars">
+            <div class="track"><span class="zero" style="left:${zero.toFixed(2)}%"></span>${bar(a)}</div>
+            <span class="line">${esc(recapLine(a))}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+/**
+ * Your own split, trade by trade. Futures you traded collapse into one line;
+ * every option contract is one line however many times you traded it; futures
+ * an exercise handed you are their own line, entered at the expiry mark.
+ */
+function recapMine(me) {
+  const a = me.attribution;
+  if (!a) return '';
+  const lines = a.lines ?? [];
+  const fut = lines.filter((l) => l.type === 'future');
+  const ex = lines.filter((l) => l.type === 'exercise');
+  const opts = new Map();
+  for (const l of lines.filter((x) => x.type === 'option')) {
+    const k = `${l.expiry}|${l.kind}|${l.strike}`;
+    const g = opts.get(k) ?? { ...l, qty: 0, intrinsic: 0, extrinsic: 0, n: 0 };
+    g.qty += l.qty; g.intrinsic += l.intrinsic; g.extrinsic += l.extrinsic; g.n += 1;
+    opts.set(k, g);
+  }
+  const num = (v) => (v === null ? '<span class="o-none">·</span>'
+    : `<span class="${cls(Math.round(v))}">${signed(Math.round(v))}</span>`);
+  const row = (label, note, f, i, e) => `
+    <tr><td><b>${label}</b>${note ? `<div class="dim tiny">${note}</div>` : ''}</td>
+      <td class="num">${num(f)}</td><td class="num">${num(i)}</td><td class="num">${num(e)}</td></tr>`;
+
+  const body = [
+    fut.length ? row('Futures you traded', `${fut.length} fill${fut.length === 1 ? '' : 's'}, marked at ${fut[0].mark}`,
+      fut.reduce((s, l) => s + l.futures, 0), null, null) : '',
+    ...[...opts.values()].sort((x, y) => x.expiry - y.expiry || x.strike - y.strike).map((g) => row(
+      `${g.qty === 0 ? 'Flat' : signed(g.qty)} ${g.strike}${g.kind === 'call' ? 'C' : 'P'} R${g.expiry}`,
+      `${g.n} trade${g.n === 1 ? '' : 's'}${g.settled ? `, settled at $${g.iNow} intrinsic` : ', still open'}`,
+      null, g.intrinsic, g.extrinsic)),
+    ...ex.map((l) => row(
+      `${l.qty > 0 ? 'Took' : 'Gave'} ${Math.abs(l.qty)} fut via ${l.strike}${l.optKind === 'call' ? 'C' : 'P'}`,
+      `enters at the expiry mark ${l.entry}, not the strike`, l.futures, null, null)),
+  ].join('');
+
+  return `
+    <div class="n-recap-mine">
+      <div class="n-recap-sum">
+        <div><span class="n-lab">Direction</span><b class="${cls(a.direction)}">${signedMoney(a.direction)}</b></div>
+        <div><span class="n-lab">Time value</span><b class="${cls(a.timeValue)}">${signedMoney(a.timeValue)}</b></div>
+      </div>
+      <p class="n-recap-said">${esc(recapLine(a))}</p>
+      <div class="scroll-x"><table class="n-recap-tbl">
+        <thead>
+          <tr class="grp"><th></th><th colspan="2" class="dir">Direction</th><th class="tv">Time</th></tr>
+          <tr><th>Trade</th><th class="num" title="Futures">Fut</th><th class="num" title="Option intrinsic">Intr</th><th class="num" title="Option extrinsic">Extr</th></tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr><td>Total ${signedMoney(a.direction + a.timeValue)}</td>
+          <td class="num">${num(a.futures)}</td><td class="num">${num(a.intrinsic)}</td><td class="num">${num(a.extrinsic)}</td></tr></tfoot>
+      </table></div>
+      <div class="n-legend"><b>Intrinsic</b> is how far in the money an option is; <b>extrinsic</b>
+        is everything above that, the time value. Held to expiry, extrinsic decays to zero, so it is
+        exactly the time value you collected or paid.</div>
     </div>`;
 }
 
@@ -1313,6 +1591,27 @@ function quoteTicket(st, me) {
              data-q="${optKey(o)}" data-f="${f}" value="${esc(val(o, f))}">
     </div>`;
 
+  // Where you already stand, per strike and for the expiry as a whole. A long
+  // call and a short put at the same strike net to zero options, which is the
+  // point: what matters is how many you are net long or short at a strike, not
+  // which leg you happen to hold it in.
+  const expiry = st.auction?.expiry;
+  const book = (me.optionPositions ?? []).filter((p) => p.expiry === expiry);
+  const legs = (strike, kind) => book.filter((p) => p.strike === strike && p.kind === kind)
+    .reduce((a, p) => a + p.qty, 0);
+  const expiryNet = book.reduce((a, p) => a + p.qty, 0);
+  const strikeNote = (strike) => {
+    const c = legs(strike, 'call'), p = legs(strike, 'put');
+    const parts = [c ? `${signed(c)} call${Math.abs(c) === 1 ? '' : 's'}` : '',
+      p ? `${signed(p)} put${Math.abs(p) === 1 ? '' : 's'}` : ''].filter(Boolean);
+    if (!parts.length) return `<div class="o-net quiet"><span>No position at ${strike}</span></div>`;
+    return `
+      <div class="o-net">
+        <span>Your ${strike}s, net <b class="${c + p === 0 ? 'white' : cls(c + p)}">${signed(c + p)}</b></span>
+        <span class="faint">${parts.join(' · ')}</span>
+      </div>`;
+  };
+
   const rows = live.map((o) => `
     <div class="o-quote">
       <div class="o-quote-cap">
@@ -1320,6 +1619,7 @@ function quoteTicket(st, me) {
         <span class="spacer"></span>
         ${houseFlag(o)}
       </div>
+      ${strikeNote(o.strike)}
       <div class="o-quote-grid">
         ${size(o, 'bidQty', `${optLabel(o)} bid size`)}
         ${price(o, 'bidPx', `${optLabel(o)} bid`, 'bid')}
@@ -1331,6 +1631,10 @@ function quoteTicket(st, me) {
   return `
     <div class="n-act">
       ${live.length ? `
+        <div class="o-netband">
+          <span>Your R${expiry} options, net</span>
+          <b class="${cls(expiryNet)}">${expiryNet > 0 ? `long ${expiryNet}` : expiryNet < 0 ? `short ${-expiryNet}` : 'flat'}</b>
+        </div>
         <div class="o-default">
           <span>Default size</span>
           <input id="qsize" inputmode="numeric" aria-label="default quote size" value="${esc(ui.defaultSize)}">
@@ -1362,7 +1666,7 @@ function expiryPicker(st) {
   const picked = new Set(st.expiries ?? []);
   const chips = [];
   for (let r = 1; r <= st.maxRounds; r++) {
-    chips.push(`<button class="o-chip ${picked.has(r) ? 'on' : ''}" data-expiry="${r}">R${r}</button>`);
+    chips.push(`<button class="o-chip exp ${picked.has(r) ? 'on' : ''}" data-expiry="${r}">R${r}</button>`);
   }
 
   // Day-of listings: a picked expiry that only appears in its own round.
@@ -1473,21 +1777,23 @@ function positionMontage(book, expiries, { counts = false } = {}) {
  */
 function optionTape(st, meName = null) {
   const rounds = [];
-  if (st.optionTrades?.length) rounds.push({ round: st.round, trades: st.optionTrades, live: true });
+  if (st.optionTrades?.length && !st.history.some((h) => h.round === st.round)) {
+    rounds.push({ round: st.round, trades: st.optionTrades, live: true });
+  }
   for (const h of st.history.slice().reverse()) {
     if (h.optionTrades?.length) rounds.push({ round: h.round, trades: h.optionTrades, live: false });
   }
   if (!rounds.length) return '<div class="n-waiting">No option trades yet.</div>';
 
-  const who = (n) => (n === 'HOUSE' ? '<span class="o-house">house</span>'
-    : `<span class="${n === meName ? 'o-me' : ''}">${esc(n)}</span>`);
+  const party = (n) => (n === 'HOUSE' ? '<span class="o-house">house</span>'
+    : who(st, n, n === meName ? 'o-me' : ''));
   const row = (t) => `
     <tr>
-      <td>${who(t.buyer)}</td>
+      <td>${party(t.buyer)}</td>
       <td class="num up">${t.qty}</td>
       <td class="o-contract">${contractTag(t)}</td>
       <td class="num"><span class="o-cur">$</span>${t.price}</td>
-      <td>${who(t.seller)}</td>
+      <td>${party(t.seller)}</td>
     </tr>`;
 
   return rounds.map((r) => `
@@ -1651,7 +1957,11 @@ function renderPlayer() {
     const won = w && w.id === me.id;
     action = `<div class="n-act plain">
       <div class="n-winner ${won ? 'up' : ''}">${won ? 'You win' : esc(w?.name ?? '—')}
-        <span class="${cls(w?.pl ?? 0)}">${w ? moneyHTML(w.pl) : ''}</span></div></div>`;
+        <span class="${cls(w?.pl ?? 0)}">${w ? moneyHTML(w.pl) : ''}</span></div>
+      ${rule('Where your P/L came from', moneyHTML(me.pl))}
+      ${recapMine(me)}
+      ${rule('The table')}
+      ${recapBoard(st)}</div>`;
     cta = callToAction('Market closed', `${st.maxRounds} rounds played`, false);
   }
 
@@ -1664,11 +1974,7 @@ function renderPlayer() {
     st.reveal ? sec(`
         ${rule(`Round ${st.round} book`, `printed ${st.reveal.price}`)}
         ${ladder(st.reveal)}
-        <div class="n-flow">
-          Pressure ${signed(st.reveal.pressure ?? 0)} · book absorbed ${st.reveal.absorbed ?? 0} ·
-          imbalance ${signed(st.reveal.imbalance)} · print ${signed(impactOf(st.reveal.imbalance))}
-          <i>paid by takers, collected by resters</i>
-        </div>`) : '',
+        ${printSteps(st.reveal)}`) : '',
     st.options ? sec(optionBlotter(me, st), true) : '',   // the by-contract table needs the width
     st.options ? sec(`${rule('Option trades', 'who traded what')}${optionTape(st, me.name)}`, true) : '',
     sec(`
@@ -1690,6 +1996,7 @@ function renderPlayer() {
       <div class="n-alerts">${alerts()}</div>
       <div class="n-col n-col-act">
         ${positionStrip(st, me)}
+        ${st.phase === 'orders' || st.phase === 'auction' ? expirySummary(st, me) : ''}
         ${st.phase === 'orders' ? lastRoundReplay(st, me) : ''}
         ${cta}
         ${action}
@@ -1705,6 +2012,28 @@ function renderPlayer() {
     </div>`;
 
   wirePlayer();
+}
+
+/**
+ * The join link as a QR code, drawn as SVG so it stays sharp on a projector.
+ * The generator is vendored (public/vendor/qrcode.js, MIT); if it has not
+ * loaded, the code and URL beside it are enough on their own.
+ */
+function qrSvg(text) {
+  if (typeof window.qrcode !== 'function') return '';
+  const qr = window.qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  let d = '';
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x} ${y}h1v1h-1z`;
+  }
+  return `
+    <svg class="n-qr" viewBox="-2 -2 ${n + 4} ${n + 4}" role="img" aria-label="QR code for the join link">
+      <rect x="-2" y="-2" width="${n + 4}" height="${n + 4}" fill="#F2F4F8"/>
+      <path d="${d}" fill="#06070C"/>
+    </svg>`;
 }
 
 function renderDashboard(hostMode = false, fromSeat = false) {
@@ -1758,9 +2087,27 @@ function renderDashboard(hostMode = false, fromSeat = false) {
 
       ${st.phase === 'lobby' ? `
         <div class="n-lobby">
-          <div class="n-code">${esc(st.code)}</div>
-          <div class="dim">${esc(joinUrl)}</div>
-          <div class="n-seats">${waitingPills(st, st.standings.map((p) => p.name))}</div>
+          <div class="n-join">
+            ${qrSvg(joinUrl)}
+            <div class="n-join-txt">
+              <span class="n-lab">Join on your phone</span>
+              <div class="n-url">${esc(joinUrl.replace(/^https?:\/\//, '').replace(/[A-Z0-9]{4}$/, ''))}</div>
+              <div class="n-code">${esc(st.code)}</div>
+            </div>
+          </div>
+          <div class="n-seated">
+            <span class="n-lab">At the table · ${st.seated}</span>
+            <div class="n-avatars">${st.standings.length ? st.standings.map((p) => `
+              <div class="n-avatar"><i style="background:${seatColor(p.seat)}">${esc(p.name.slice(0, 1))}</i>
+                <span>${esc(p.name)}</span>${p.bot ? '<span class="bot-tag">bot</span>' : ''}</div>`).join('')
+              : '<span class="dim">Nobody yet</span>'}</div>
+          </div>
+        </div>` : ''}
+
+      ${st.phase === 'complete' && st.recap ? `
+        <div class="n-recap-wall">
+          <h2>Game over · future finished at <b>${st.mark}</b></h2>
+          ${recapBoard(st, true)}
         </div>` : ''}
 
       <div class="n-top">
@@ -1780,12 +2127,7 @@ function renderDashboard(hostMode = false, fromSeat = false) {
         </div>
       </div>
 
-      ${book ? `
-        <div class="n-flow big">
-          Pressure <b>${signed(book.pressure ?? 0)}</b> · book absorbed <b>${book.absorbed ?? 0}</b> ·
-          imbalance <b>${signed(book.imbalance)}</b> · print <b>${signed(impactOf(book.imbalance))}</b>
-          <i>paid by takers, collected by resters</i>
-        </div>` : ''}
+      ${book ? printSteps(book, true) : ''}
 
       <div class="n-cols">
         <div>
